@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, PartialEq)]
 pub enum CellEvent {
@@ -24,31 +24,25 @@ impl Board {
         self.cell_map.insert(coord, color);
     }
 
-    // TODO: into vector
-    pub fn cells(&self) -> Vec<CellView> {
-        self.cell_map
-            .iter()
-            .map(|(coord, color)| CellView {
-                coords: coord,
-                color,
-            })
-            .collect::<Vec<CellView>>()
-    }
-
     pub fn tick(&mut self) -> Vec<CellEvent> {
         let mut updates: Vec<CellEvent> = vec![];
 
-        for (coords, color) in self.cell_map.iter() {
+        for CellView { coords, color } in self.cell_map.cells().iter() {
             let neighbours = self.cell_map.get_neighbours(coords);
-            if neighbours.len() >= 2 && neighbours.len() <= 3 {
-                // updates.push(CellEvent::Born(Cell {
-                //     coords: (*coords).clone(),
-                //     color: (*color).clone(),
-                // }))
-            } else {
+            if neighbours.len() < 2 || neighbours.len() > 3 {
                 updates.push(CellEvent::Died(Cell {
                     coords: (*coords).clone(),
                     color: (*color).clone(),
+                }))
+            }
+        }
+
+        for coords in self.cell_map.all_dead_neighbours() {
+            let alive_neighbours = self.cell_map.get_neighbours(&coords);
+            if alive_neighbours.len() == 3 {
+                updates.push(CellEvent::Born(Cell {
+                    coords,
+                    color: Color(1.0, 1.0, 1.0),
                 }))
             }
         }
@@ -67,23 +61,31 @@ impl Board {
 }
 
 trait Cells {
+    fn get(&self, coord: &Coord) -> Option<CellView>;
     fn get_neighbours(&self, coord: &Coord) -> Vec<CellView>;
+    fn all_dead_neighbours(&self) -> Vec<Coord>;
+    fn cells(&self) -> Vec<CellView>;
 }
 
-impl Cells for HashMap<Coord, Color> {
-    fn get_neighbours(&self, coord: &Coord) -> Vec<CellView> {
-        let diffs: Vec<(i32, i32)> = vec![
-            (1, 1),
-            (1, 0),
-            (1, -1),
-            (0, 1),
-            (0, -1),
-            (-1, 1),
-            (-1, 0),
-            (-1, 1),
-        ];
+static NEIGHBOURS_DIFFS: &'static [(i32, i32)] = &[
+    (1, 1),
+    (1, 0),
+    (1, -1),
+    (0, 1),
+    (0, -1),
+    (-1, 1),
+    (-1, 0),
+    (-1, 1),
+];
 
-        diffs
+impl Cells for HashMap<Coord, Color> {
+    fn get(&self, coords: &Coord) -> Option<CellView> {
+        self.get_key_value(coords)
+            .map(|(coords, color)| CellView { coords, color })
+    }
+
+    fn get_neighbours(&self, coord: &Coord) -> Vec<CellView> {
+        NEIGHBOURS_DIFFS
             .iter()
             .filter_map(|(dx, dy)| {
                 let (coords, color) = self.get_key_value(&Coord(coord.0 + dx, coord.1 + dy))?;
@@ -91,6 +93,34 @@ impl Cells for HashMap<Coord, Color> {
                 Some(CellView { coords, color })
             })
             .collect()
+    }
+
+    fn all_dead_neighbours(&self) -> Vec<Coord> {
+        let possible_empty: HashSet<Coord> = self
+            .keys()
+            .flat_map(|coords| {
+                NEIGHBOURS_DIFFS
+                    .iter()
+                    .map(move |(dx, dy)| Coord(coords.0 + dx, coords.1 + dy))
+            })
+            .collect();
+
+        possible_empty
+            .into_iter()
+            .filter_map(|coords| match self.get(&coords) {
+                Some(_) => None,
+                None => Some(coords),
+            })
+            .collect()
+    }
+
+    fn cells(&self) -> Vec<CellView> {
+        self.iter()
+            .map(|(coord, color)| CellView {
+                coords: coord,
+                color,
+            })
+            .collect::<Vec<CellView>>()
     }
 }
 
@@ -135,7 +165,7 @@ mod tests {
 
         board.tick();
 
-        assert_eq!(board.cells(), vec![])
+        assert_eq!(board.cell_map.cells(), vec![])
     }
 
     #[test]
@@ -153,13 +183,22 @@ mod tests {
 
         cells.into_iter().for_each(|c| board.insert(c, red()));
 
-        assert_eq!(
-            board.tick(),
-            vec![CellEvent::Died(Cell {
-                coords: Coord(1, 1),
-                color: red()
-            })]
-        )
+        board.tick();
+
+        assert_eq!(board.cell_map.get(&Coord(1, 1,)), None)
+    }
+
+    #[test]
+    fn cell_comes_alive() {
+        let cells = vec![Coord(0, 0), Coord(0, 1), Coord(0, 2)];
+
+        let mut board = Board::new(100);
+
+        cells.into_iter().for_each(|c| board.insert(c, red()));
+
+        board.tick();
+
+        board.cell_map.get(&Coord(1, 1)).expect("Should come alive");
     }
 
     #[test]
