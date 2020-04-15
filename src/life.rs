@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum CellEvent {
     Born(Cell),
     Died(Cell),
@@ -12,7 +13,7 @@ pub struct Board {
     size: usize,
 }
 
-trait Cells {
+pub trait Cells {
     fn get(&self, coord: &Coord) -> Option<CellView>;
     fn insert(&mut self, coord: Coord, color: Color);
     fn remove(&mut self, coord: &Coord);
@@ -133,13 +134,13 @@ impl Board {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Coord(i32, i32);
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Coord(pub i32, pub i32);
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Color(f32, f32, f32);
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Color(pub f32, pub f32, pub f32);
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Cell {
     coords: Coord,
     color: Color,

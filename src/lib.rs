@@ -1,8 +1,10 @@
 use js_sys;
+use serde_json;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
 mod life;
+use life::{Cells, Color, Coord};
 mod sim;
 
 use sim::*;
@@ -31,24 +33,35 @@ pub fn main_js() -> Result<(), JsValue> {
 
 #[wasm_bindgen]
 pub struct Game {
-    simulation: Simulation,
+    board: life::Board,
 }
 
 /// Public methods, exported to JavaScript.
 #[wasm_bindgen]
 impl Game {
     pub fn new() -> Game {
-        let mut simulation = Simulation::new();
+        let mut board = life::Board::new(100);
 
-        simulation.setup();
+        let cells = vec![
+            Coord(0, 0),
+            Coord(0, 1),
+            Coord(0, 2),
+            Coord(1, 1),
+            Coord(2, 0),
+            Coord(2, 1),
+        ];
 
-        Game { simulation }
+        let color = Color(1.0, 1.0, 1.0);
+
+        cells.into_iter().for_each(|c| board.insert(c, color.clone()));
+
+        Game { board }
     }
 
-    pub fn tick(&mut self) -> js_sys::Array {
+    pub fn tick(&mut self) -> String {
         console::log_1(&JsValue::from_str("game tick"));
-        let events = self.simulation.tick();
-        events.into_iter().map(JsValue::from).collect()
+        let events = self.board.tick();
+        serde_json::to_string(&events).unwrap()
     }
 
     pub fn callback(&self, f: js_sys::Function) {
