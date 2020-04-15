@@ -2,6 +2,7 @@ use js_sys;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
+mod life;
 mod sim;
 
 use sim::*;
