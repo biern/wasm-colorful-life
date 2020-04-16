@@ -1,5 +1,5 @@
 import("../pkg/index.js").catch(console.error).then((mod) => {
-  const game = mod.Game.new();
+  const game = mod.Game.new(100);
 
   setInterval(() => {
     const events = game.tick();

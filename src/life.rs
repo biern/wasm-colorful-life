@@ -1,3 +1,4 @@
+use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -98,6 +99,24 @@ impl Board {
             size,
             cell_map: HashMap::new(),
         }
+    }
+
+    pub fn random(size: usize, alive_chance: f32) -> Board {
+        let mut board = Board::new(size);
+
+        for i in 0..size {
+            for j in 0..size {
+                if rand::random::<f32>() <= alive_chance {
+                    board.insert(Coord (i as i32, j as i32), Color(
+                        rand::random(),
+                        rand::random(),
+                        rand::random(),
+                    ))
+                }
+            }
+        }
+
+        board
     }
 
     pub fn tick(&mut self) -> Vec<CellEvent> {

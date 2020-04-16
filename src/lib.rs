@@ -39,21 +39,8 @@ pub struct Game {
 /// Public methods, exported to JavaScript.
 #[wasm_bindgen]
 impl Game {
-    pub fn new() -> Game {
-        let mut board = life::Board::new(100);
-
-        let cells = vec![
-            Coord(0, 0),
-            Coord(0, 1),
-            Coord(0, 2),
-            Coord(1, 1),
-            Coord(2, 0),
-            Coord(2, 1),
-        ];
-
-        let color = Color(1.0, 1.0, 1.0);
-
-        cells.into_iter().for_each(|c| board.insert(c, color.clone()));
+    pub fn new(size: usize) -> Game {
+        let board = life::Board::random(size, 0.5);
 
         Game { board }
     }
