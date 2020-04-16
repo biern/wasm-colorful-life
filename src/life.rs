@@ -161,14 +161,14 @@ pub struct Color(pub f32, pub f32, pub f32);
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Cell {
-    coords: Coord,
-    color: Color,
+    pub coords: Coord,
+    pub color: Color,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct CellView<'a> {
-    coords: &'a Coord,
-    color: &'a Color,
+    pub coords: &'a Coord,
+    pub color: &'a Color,
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::console;
 
 mod life;
-use life::{Cells, Color, Coord};
+use life::Cells;
 mod sim;
 
 use sim::*;
@@ -45,14 +45,24 @@ impl Game {
         Game { board }
     }
 
-    pub fn tick(&mut self) -> String {
-        console::log_1(&JsValue::from_str("game tick"));
-        let events = self.board.tick();
+    pub fn get_state(&self) -> String {
+        let events: Vec<life::CellEvent> = self
+            .board
+            .cells()
+            .into_iter()
+            .map(|c| {
+                life::CellEvent::Born(life::Cell {
+                    coords: c.coords.clone(),
+                    color: c.color.clone(),
+                })
+            })
+            .collect();
+
         serde_json::to_string(&events).unwrap()
     }
 
-    pub fn callback(&self, f: js_sys::Function) {
-        console::log_1(&JsValue::from_str("before"));
-        f.call0(&JsValue::NULL).unwrap();
+    pub fn tick(&mut self) -> String {
+        let events = self.board.tick();
+        serde_json::to_string(&events).unwrap()
     }
 }
