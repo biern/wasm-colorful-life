@@ -198,6 +198,19 @@ mod tests {
     }
 
     #[test]
+    fn cell_with_one_neighbour_dies() {
+        let mut board = Board::new(100);
+
+        board.insert(Coord(0, 0), red());
+        board.insert(Coord(1, 1), red());
+        board.insert(Coord(1, 2), red());
+
+        board.tick();
+
+        assert_eq!(board.cell_map.get(&Coord(0, 0,)), None)
+    }
+
+    #[test]
     fn crowded_cell_dies() {
         let cells = vec![
             Coord(0, 0),
@@ -228,10 +241,6 @@ mod tests {
         board.tick();
 
         board.cell_map.get(&Coord(1, 1)).expect("Should come alive");
-    }
-
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+        board.cell_map.get(&Coord(-1, 1)).expect("Should come alive");
     }
 }
