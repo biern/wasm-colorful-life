@@ -143,10 +143,19 @@ impl Board {
         for coords in self.all_dead_neighbours() {
             let alive_neighbours = self.get_neighbours(&coords);
             if alive_neighbours.len() == 3 {
-                updates.push(CellEvent::Born(Cell {
-                    coords,
-                    color: Color(1.0, 1.0, 1.0),
-                }))
+                let color =
+                    alive_neighbours
+                    .iter()
+                    .map(|c| c.color)
+                    .fold(Color(0., 0., 0.), |acc, c| {
+                        Color(
+                            acc.0 + c.0 / alive_neighbours.len() as f32,
+                            acc.1 + c.1 / alive_neighbours.len() as f32,
+                            acc.2 + c.2 / alive_neighbours.len() as f32,
+                        )
+                    });
+
+                updates.push(CellEvent::Born(Cell { coords, color }))
             }
         }
 
@@ -233,7 +242,9 @@ mod tests {
 
         let mut board = Board::new(100);
 
-        cells.into_iter().for_each(|c| board.insert(c, red()));
+        cells.into_iter().for_each(|c| {
+            board.insert(c, red());
+        });
 
         board.tick();
 
@@ -246,7 +257,9 @@ mod tests {
 
         let mut board = Board::new(100);
 
-        cells.into_iter().for_each(|c| board.insert(c, red()));
+        cells.into_iter().for_each(|c| {
+            board.insert(c, red());
+        });
 
         board.tick();
 

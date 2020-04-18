@@ -45,14 +45,16 @@ export const App = () => {
   }, []);
 
   return emitter ? (
-    <table>
-      {R.range(0, size).map((i) => (
-        <tr key={i}>
-          {R.range(0, size).map((j) => (
-            <Cell key={`${i}-${j}`} x={i} y={j} emitter={emitter} />
-          ))}
-        </tr>
-      ))}
+    <table style={{ borderCollapse: "collapse" }}>
+      <tbody>
+        {R.range(0, size).map((i) => (
+          <tr key={i}>
+            {R.range(0, size).map((j) => (
+              <Cell key={`${i}-${j}`} x={i} y={j} emitter={emitter} />
+            ))}
+          </tr>
+        ))}
+      </tbody>
     </table>
   ) : (
     <div />
@@ -68,17 +70,38 @@ type Event = { Died: CellData } | { Born: CellData };
 
 type CellProps = { x: number; y: number; emitter: EventEmitter };
 
-/* const CellSquare = styled */
+type CellState =
+  | {
+      kind: "Dead";
+    }
+  | { kind: "Alive"; color: [number, number, number] };
 
+/* const CellDisplay = styled.td<{ cell: CellState }>`
+ *   width: 1rem;
+ *   height: 1rem;
+ *   background-color: ${(props) =>
+ *     props.cell.kind === "Dead"
+ *       ? "none"
+ *       : `rgba(${props.cell.color.map((c) => c * 255)})`};
+ * `;
+ *  */
 const Cell = ({ x, y, emitter }: CellProps) => {
-  const [state, setState] = useState<"Died" | "Born">("Died");
+  const [state, setState] = useState<CellState>({ kind: "Dead" });
 
   useEffect(() => {
     const listener = (e: Event) => {
       const data = "Died" in e ? e.Died : e.Born;
 
       if (data.coords[0] === x && data.coords[1] === y) {
-        setTimeout(() => setState("Died" in e ? "Died" : "Born"), 0);
+        /* setTimeout(() => setState("Died" in e ? "Died" : "Born"), 0); */
+        setTimeout(
+          setState(
+            "Died" in e
+              ? { kind: "Dead" }
+              : { kind: "Alive", color: data.color }
+          ),
+          0
+        );
       }
     };
 
@@ -89,14 +112,20 @@ const Cell = ({ x, y, emitter }: CellProps) => {
     };
   }, [emitter]);
 
-  const style =
-    state === "Born"
-      ? {
-          backgroundColor: "black",
-        }
-      : {};
-
-  return <td style={{ width: "1rem", height: "1rem", ...style }}></td>;
+  /* return <CellDisplay cell={state} />; */
+  return (
+    <td
+      style={{
+        width: "1rem",
+        height: "1rem",
+        transition: "background-color 0.5s",
+        backgroundColor:
+          state.kind === "Dead"
+            ? "transparent"
+            : `rgba(${state.color.map((c) => c * 255)})`,
+      }}
+    ></td>
+  );
 };
 
 ReactDOM.render(React.createElement(App), document.getElementById("root"));
