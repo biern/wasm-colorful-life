@@ -31,7 +31,7 @@ static NEIGHBOURS_DIFFS: &'static [(i32, i32)] = &[
     (0, -1),
     (-1, 1),
     (-1, 0),
-    (-1, 1),
+    (-1, -1),
 ];
 
 impl Cells for Board {
@@ -107,11 +107,10 @@ impl Board {
         for i in 0..size {
             for j in 0..size {
                 if rand::random::<f32>() <= alive_chance {
-                    board.insert(Coord (i as i32, j as i32), Color(
-                        rand::random(),
-                        rand::random(),
-                        rand::random(),
-                    ))
+                    board.insert(
+                        Coord(i as i32, j as i32),
+                        Color(rand::random(), rand::random(), rand::random()),
+                    )
                 }
             }
         }
@@ -241,6 +240,86 @@ mod tests {
         board.tick();
 
         board.cell_map.get(&Coord(1, 1)).expect("Should come alive");
-        board.cell_map.get(&Coord(-1, 1)).expect("Should come alive");
+        board
+            .cell_map
+            .get(&Coord(-1, 1))
+            .expect("Should come alive");
+    }
+}
+
+#[cfg(test)]
+mod snapshots {
+    use super::*;
+    use insta::*;
+
+    fn red() -> Color {
+        Color(1., 0., 0.)
+    }
+
+    fn display_board(board: &Board) -> String {
+        let mut display = String::new();
+
+        for i in 0..board.size {
+            for j in 0..board.size {
+                display.push(match board.get(&Coord(i as i32, j as i32)) {
+                    Some(_) => 'x',
+                    None => ' ',
+                })
+            }
+            display.push('\n');
+        }
+
+        display
+    }
+
+    fn test_board_tick(board: &mut Board) {
+        let before = display_board(board);
+
+        let events = board.tick().iter().map(|e| format!("{:?}", e)).collect::<Vec<_>>().join("\\n");
+
+        let after = display_board(&board);
+
+        assert_snapshot!(format!("Before:\n{}\nAfter:\n{}\nEvents: {}", before, after, events));
+    }
+
+    #[test]
+    fn test_horizontal_line() {
+        let mut board = Board::new(3);
+
+        board.insert(Coord(1, 0), red());
+        board.insert(Coord(1, 1), red());
+        board.insert(Coord(1, 2), red());
+
+        test_board_tick(&mut board);
+    }
+
+    #[test]
+    fn test_vertical_line() {
+        let mut board = Board::new(3);
+
+        board.insert(Coord(0, 1), red());
+        board.insert(Coord(1, 1), red());
+        board.insert(Coord(2, 1), red());
+
+        test_board_tick(&mut board);
+    }
+
+    #[test]
+    fn test_neighbours() {
+        let mut board = Board::new(3);
+
+        board.insert(Coord(0, 0), red());
+        board.insert(Coord(1, 0), red());
+        board.insert(Coord(2, 0), red());
+
+        board.insert(Coord(0, 1), red());
+        board.insert(Coord(1, 1), red());
+        board.insert(Coord(2, 1), red());
+
+        board.insert(Coord(0, 2), red());
+        board.insert(Coord(1, 2), red());
+        board.insert(Coord(2, 2), red());
+
+        assert_debug_snapshot!(board.get_neighbours(&Coord(1, 1)).iter().map(|c| c.coords).collect::<Vec<_>>())
     }
 }

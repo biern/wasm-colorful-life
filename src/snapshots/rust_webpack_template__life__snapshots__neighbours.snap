@@ -1,0 +1,38 @@
+---
+source: src/life.rs
+expression: "board.get_neighbours(&Coord(1,\n                            1)).iter().map(|c| c.coords).collect::<Vec<_>>()"
+---
+[
+    Coord(
+        2,
+        2,
+    ),
+    Coord(
+        2,
+        1,
+    ),
+    Coord(
+        2,
+        0,
+    ),
+    Coord(
+        1,
+        2,
+    ),
+    Coord(
+        1,
+        0,
+    ),
+    Coord(
+        0,
+        2,
+    ),
+    Coord(
+        0,
+        1,
+    ),
+    Coord(
+        0,
+        0,
+    ),
+]

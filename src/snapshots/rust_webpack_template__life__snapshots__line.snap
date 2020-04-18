@@ -1,0 +1,14 @@
+---
+source: src/life.rs
+expression: "format!(\"Before:\\n{}\\nAfter:\\n{}\", before, after)"
+---
+Before:
+   
+xxx
+   
+
+After:
+ x 
+ x 
+xx 
+
