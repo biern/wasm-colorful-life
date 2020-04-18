@@ -16,7 +16,7 @@ pub struct Board {
 
 pub trait Cells {
     fn get(&self, coord: &Coord) -> Option<CellView>;
-    fn insert(&mut self, coord: Coord, color: Color);
+    fn insert(&mut self, coord: Coord, color: Color) -> bool;
     fn remove(&mut self, coord: &Coord);
     fn get_neighbours(&self, coord: &Coord) -> Vec<CellView>;
     fn all_dead_neighbours(&self) -> Vec<Coord>;
@@ -45,8 +45,17 @@ impl Cells for Board {
         self.cell_map.remove(coords);
     }
 
-    fn insert(&mut self, coords: Coord, color: Color) {
-        self.cell_map.insert(coords, color);
+    fn insert(&mut self, coords: Coord, color: Color) -> bool {
+        if coords.0 < 0
+            || coords.1 < 0
+            || coords.0 >= self.size as i32
+            || coords.1 >= self.size as i32
+        {
+            false
+        } else {
+            self.cell_map.insert(coords, color);
+            true
+        }
     }
 
     fn get_neighbours(&self, coord: &Coord) -> Vec<CellView> {
@@ -110,7 +119,7 @@ impl Board {
                     board.insert(
                         Coord(i as i32, j as i32),
                         Color(rand::random(), rand::random(), rand::random()),
-                    )
+                    );
                 }
             }
         }
@@ -143,7 +152,9 @@ impl Board {
 
         for update in &updates {
             match update {
-                CellEvent::Born(cell) => self.insert(cell.coords.clone(), cell.color.clone()),
+                CellEvent::Born(cell) => {
+                    self.insert(cell.coords.clone(), cell.color.clone());
+                }
                 CellEvent::Died(cell) => self.remove(&cell.coords),
             };
         }
@@ -275,11 +286,19 @@ mod snapshots {
     fn test_board_tick(board: &mut Board) {
         let before = display_board(board);
 
-        let events = board.tick().iter().map(|e| format!("{:?}", e)).collect::<Vec<_>>().join("\\n");
+        let events = board
+            .tick()
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<_>>()
+            .join("\\n");
 
         let after = display_board(&board);
 
-        assert_snapshot!(format!("Before:\n{}\nAfter:\n{}\nEvents: {}", before, after, events));
+        assert_snapshot!(format!(
+            "Before:\n{}\nAfter:\n{}\nEvents: {}",
+            before, after, events
+        ));
     }
 
     #[test]
@@ -320,6 +339,10 @@ mod snapshots {
         board.insert(Coord(1, 2), red());
         board.insert(Coord(2, 2), red());
 
-        assert_debug_snapshot!(board.get_neighbours(&Coord(1, 1)).iter().map(|c| c.coords).collect::<Vec<_>>())
+        assert_debug_snapshot!(board
+            .get_neighbours(&Coord(1, 1))
+            .iter()
+            .map(|c| c.coords)
+            .collect::<Vec<_>>())
     }
 }
