@@ -2,6 +2,8 @@ import * as R from "ramda";
 import ReactDOM from "react-dom";
 import React, { useEffect, useRef, MutableRefObject, useState } from "react";
 
+import type { Game } from "../pkg/index";
+
 const wasm = import("../pkg/index.js");
 
 type RefMap = { [key: string]: MutableRefObject<HTMLTableCellElement | null> };
@@ -10,7 +12,7 @@ export const App = () => {
   const size = 50;
   const updatesPerRender = 1;
   const [fps, setFps] = useState(3);
-  const [game, setGame] = useState<undefined | any>(undefined);
+  const [game, setGame] = useState<undefined | Game>(undefined);
 
   const refs: RefMap = {};
 
@@ -44,7 +46,7 @@ export const App = () => {
     const run = async () => {
       const run = () => {
         console.time("tick");
-        const events = R.range(0, updatesPerRender).map(() => game.tick());
+        const events = R.range(0, updatesPerRender).map(() => game!.tick());
         console.timeEnd("tick");
 
         console.time("JSON parse");
@@ -54,8 +56,6 @@ export const App = () => {
         console.time("publish");
         handleEvents(decoded);
         console.timeEnd("publish");
-
-        console.log(1000 / fps);
 
         timeoutId = setTimeout(run, 1000 / fps);
       };
@@ -87,12 +87,7 @@ export const App = () => {
           {R.range(0, size).map((i) => (
             <tr key={i}>
               {R.range(0, size).map((j) => (
-                <Cell
-                  key={`${i}-${j}`}
-                  x={i}
-                  y={j}
-                  cellRef={refs[`${i}-${j}`]}
-                />
+                <Cell key={`${i}-${j}`} cellRef={refs[`${i}-${j}`]} />
               ))}
             </tr>
           ))}
@@ -102,20 +97,11 @@ export const App = () => {
   );
 };
 
-type CellData = {
-  color: [number, number, number];
-  coords: [number, number];
-};
-
-type Event = { Died: CellData } | { Born: CellData };
-
 type CellProps = {
-  x: number;
-  y: number;
   cellRef: MutableRefObject<HTMLTableCellElement | null>;
 };
 
-const Cell = ({ x, y, cellRef }: CellProps) => {
+const Cell = ({ cellRef }: CellProps) => {
   return (
     <td
       style={{
@@ -128,6 +114,13 @@ const Cell = ({ x, y, cellRef }: CellProps) => {
     ></td>
   );
 };
+
+type CellData = {
+  color: [number, number, number];
+  coords: [number, number];
+};
+
+type Event = { Died: CellData } | { Born: CellData };
 
 const updateCell = (refs: RefMap) => (e: Event) => {
   const data = "Died" in e ? e.Died : e.Born;
