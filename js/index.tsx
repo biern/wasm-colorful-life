@@ -1,6 +1,6 @@
 import * as R from "ramda";
 import ReactDOM from "react-dom";
-import React, { useEffect, useRef, MutableRefObject } from "react";
+import React, { useEffect, useRef, MutableRefObject, useState } from "react";
 
 const wasm = import("../pkg/index.js");
 
@@ -9,6 +9,8 @@ type RefMap = { [key: string]: MutableRefObject<HTMLTableCellElement | null> };
 export const App = () => {
   const size = 50;
   const updatesPerRender = 1;
+  const [fps, setFps] = useState(3);
+  const [game, setGame] = useState<undefined | any>(undefined);
 
   const refs: RefMap = {};
 
@@ -18,6 +20,9 @@ export const App = () => {
     }
   }
 
+  const eventHandler = updateCell(refs);
+  const handleEvents = (events: Event[]) => events.forEach(eventHandler);
+
   useEffect(() => {
     const run = async () => {
       const _mod = await wasm;
@@ -25,12 +30,19 @@ export const App = () => {
 
       const game = mod.Game.new(size);
 
-      const eventHandler = updateCell(refs);
-      const handleEvents = (events: Event[]) => events.forEach(eventHandler);
-
       handleEvents(JSON.parse(game.get_state()));
 
-      setInterval(() => {
+      setGame(game);
+    };
+
+    run();
+  }, []);
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+
+    const run = async () => {
+      const run = () => {
         console.time("tick");
         const events = R.range(0, updatesPerRender).map(() => game.tick());
         console.timeEnd("tick");
@@ -42,14 +54,34 @@ export const App = () => {
         console.time("publish");
         handleEvents(decoded);
         console.timeEnd("publish");
-      }, 200);
+
+        console.log(1000 / fps);
+
+        timeoutId = setTimeout(run, 1000 / fps);
+      };
+
+      run();
     };
 
     run();
-  }, []);
+
+    return () => clearTimeout(timeoutId);
+  }, [game, fps]);
 
   return (
     <div>
+      <label>FPS:</label>
+      <input
+        type="range"
+        min="1"
+        max="33"
+        value={fps}
+        onChange={(e) => {
+          setFps(Number(e.target.value));
+          console.log(fps);
+        }}
+      />
+      ({fps})
       <table style={{ borderCollapse: "collapse" }}>
         <tbody>
           {R.range(0, size).map((i) => (
@@ -102,9 +134,6 @@ const updateCell = (refs: RefMap) => (e: Event) => {
   const element = refs[`${data.coords[0]}-${data.coords[1]}`]?.current;
 
   if (!element) {
-    console.log(refs, `${data.coords[0]}-${data.coords[1]}`);
-
-    console.log("Invalid data", data.coords);
     return;
   }
   if ("Died" in e) {
