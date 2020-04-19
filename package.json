@@ -5,8 +5,10 @@
   "scripts": {
     "build": "rimraf dist pkg && webpack",
     "build:wasm": "wasm-pack build --dev --out-name index",
+    "build:wasm:release": "wasm-pack build --out-name index",
     "start": "rimraf dist pkg && webpack-dev-server --open -d",
-    "test": "cargo test && wasm-pack test --headless"
+    "test": "cargo test && wasm-pack test --headless",
+    "publish": "surge dist colorful-life.surge.sh"
   },
   "devDependencies": {
     "@types/ramda": "^0.27.3",
@@ -18,6 +20,7 @@
     "prettier": "^2.0.4",
     "rimraf": "^3.0.0",
     "source-map-loader": "^0.2.4",
+    "surge": "^0.21.3",
     "ts-loader": "^7.0.0",
     "typescript": "^3.8.3",
     "webpack": "^4.42.0",
