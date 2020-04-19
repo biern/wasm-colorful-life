@@ -30,7 +30,6 @@ js-sys = "0.3.22"
 # compared to the default allocator's ~10K. However, it is slower than the default
 # allocator, so it's not enabled by default.
 wee_alloc = { version = "0.4.2", optional = true }
-legion = { version = "0.2.1", default-features = false }
 serde_json = "1.0.51"
 serde = { version = "1.0.106", features = ["derive"] }
 rand = "0.7.3"

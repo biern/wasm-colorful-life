@@ -5,9 +5,6 @@ use web_sys::console;
 
 mod life;
 use life::Cells;
-mod sim;
-
-use sim::*;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
