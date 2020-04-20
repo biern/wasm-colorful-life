@@ -90,17 +90,33 @@ export const App = () => {
 
   return (
     <div>
-      <label>FPS:</label>
-      <input
-        type="range"
-        min="1"
-        max="33"
-        value={life.fps}
-        onChange={(e) => {
-          life.setFps(Number(e.target.value));
-        }}
-      />
-      ({life.fps})
+      <div>
+        <label>FPS:</label>
+        <input
+          type="range"
+          min="1"
+          max="33"
+          value={life.fps}
+          onChange={(e) => {
+            life.setFps(Number(e.target.value));
+          }}
+        />
+        ({life.fps})
+      </div>
+      <div>
+        <label>Size:</label>
+        <input
+          type="range"
+          min="30"
+          max="200"
+          step="10"
+          value={life.size}
+          onChange={(e) => {
+            life.setSize(Number(e.target.value));
+          }}
+        />
+        ({life.size})
+      </div>
       {
         <table style={{ borderCollapse: "collapse" }}>
           <tbody>
