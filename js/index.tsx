@@ -142,10 +142,10 @@ const Cell = ({ cellRef }: CellProps) => {
   return (
     <td
       style={{
-        width: "1rem",
-        minWidth: "1rem",
-        height: "1rem",
-        minHeight: "1rem",
+        width: "0.5rem",
+        minWidth: "0.5rem",
+        height: "0.5rem",
+        minHeight: "0.5rem",
       }}
       ref={cellRef as React.Ref<HTMLTableCellElement>}
     ></td>
