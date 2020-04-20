@@ -8,21 +8,24 @@ const wasm = import("../pkg/index.js");
 
 type RefMap = { [key: string]: MutableRefObject<HTMLTableCellElement | null> };
 
-export const App = () => {
-  const size = 50;
+const useLife = (args: {
+  size: number;
+  fps: number;
+  eventHandler: (refs: RefMap) => (event: Event) => void;
+}) => {
   const updatesPerRender = 1;
   const [fps, setFps] = useState(3);
   const [game, setGame] = useState<undefined | Game>(undefined);
 
   const refs: RefMap = {};
 
-  for (const i of R.range(0, size)) {
-    for (const j of R.range(0, size)) {
+  for (const i of R.range(0, args.size)) {
+    for (const j of R.range(0, args.size)) {
       refs[`${i}-${j}`] = useRef(null);
     }
   }
 
-  const eventHandler = updateCell(refs);
+  const eventHandler = args.eventHandler(refs);
   const handleEvents = (events: Event[]) => events.forEach(eventHandler);
 
   useEffect(() => {
@@ -30,7 +33,7 @@ export const App = () => {
       const _mod = await wasm;
       const mod = _mod as Exclude<typeof _mod, void>;
 
-      const game = mod.Game.new(size);
+      const game = mod.Game.new(args.size);
 
       handleEvents(JSON.parse(game.get_state()));
 
@@ -72,6 +75,18 @@ export const App = () => {
     return () => clearTimeout(timeoutId);
   }, [game, fps]);
 
+  return {
+    fps,
+    setFps,
+    game,
+    refs,
+  };
+};
+
+export const App = () => {
+  const size = 50;
+  const life = useLife({ size, fps: 3, eventHandler: updateCell });
+
   return (
     <div>
       <label>FPS:</label>
@@ -79,19 +94,18 @@ export const App = () => {
         type="range"
         min="1"
         max="33"
-        value={fps}
+        value={life.fps}
         onChange={(e) => {
-          setFps(Number(e.target.value));
-          console.log(fps);
+          life.setFps(Number(e.target.value));
         }}
       />
-      ({fps})
+      ({life.fps})
       <table style={{ borderCollapse: "collapse" }}>
         <tbody>
           {R.range(0, size).map((i) => (
             <tr key={i}>
               {R.range(0, size).map((j) => (
-                <Cell key={`${i}-${j}`} cellRef={refs[`${i}-${j}`]} />
+                <Cell key={`${i}-${j}`} cellRef={life.refs[`${i}-${j}`]} />
               ))}
             </tr>
           ))}
