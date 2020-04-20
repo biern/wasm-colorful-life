@@ -1,26 +1,26 @@
-use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub enum CellEvent {
-    Born(Cell),
-    Died(Cell),
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CellEvent<D> {
+    Born(Cell<D>),
+    Died(Cell<D>),
 }
 
-#[derive(Debug)]
-pub struct Board {
-    cell_map: HashMap<Coord, Color>,
+// #[derive(Debug)]
+pub struct Board<D: Clone = ()> {
+    cell_map: HashMap<Coord, D>,
     size: usize,
+    new_cell_data: fn(Vec<CellView<D>>) -> D,
 }
 
-pub trait Cells {
-    fn get(&self, coord: &Coord) -> Option<CellView>;
-    fn insert(&mut self, coord: Coord, color: Color) -> bool;
+pub trait Cells<D> {
+    fn get(&self, coord: &Coord) -> Option<CellView<D>>;
+    fn insert(&mut self, coord: Coord, data: D) -> bool;
     fn remove(&mut self, coord: &Coord);
-    fn get_neighbours(&self, coord: &Coord) -> Vec<CellView>;
+    fn get_neighbours(&self, coord: &Coord) -> Vec<CellView<D>>;
     fn all_dead_neighbours(&self) -> Vec<Coord>;
-    fn cells(&self) -> Vec<CellView>;
+    fn cells(&self) -> Vec<CellView<D>>;
 }
 
 static NEIGHBOURS_DIFFS: &'static [(i32, i32)] = &[
@@ -34,18 +34,18 @@ static NEIGHBOURS_DIFFS: &'static [(i32, i32)] = &[
     (-1, -1),
 ];
 
-impl Cells for Board {
-    fn get(&self, coords: &Coord) -> Option<CellView> {
+impl<D: Clone> Cells<D> for Board<D> {
+    fn get(&self, coords: &Coord) -> Option<CellView<D>> {
         self.cell_map
             .get_key_value(coords)
-            .map(|(coords, color)| CellView { coords, color })
+            .map(|(coords, data)| CellView { coords, data })
     }
 
     fn remove(&mut self, coords: &Coord) {
         self.cell_map.remove(coords);
     }
 
-    fn insert(&mut self, coords: Coord, color: Color) -> bool {
+    fn insert(&mut self, coords: Coord, data: D) -> bool {
         if coords.0 < 0
             || coords.1 < 0
             || coords.0 >= self.size as i32
@@ -53,20 +53,20 @@ impl Cells for Board {
         {
             false
         } else {
-            self.cell_map.insert(coords, color);
+            self.cell_map.insert(coords, data);
             true
         }
     }
 
-    fn get_neighbours(&self, coord: &Coord) -> Vec<CellView> {
+    fn get_neighbours(&self, coord: &Coord) -> Vec<CellView<D>> {
         NEIGHBOURS_DIFFS
             .iter()
             .filter_map(|(dx, dy)| {
-                let (coords, color) = self
+                let (coords, data) = self
                     .cell_map
                     .get_key_value(&Coord(coord.0 + dx, coord.1 + dy))?;
 
-                Some(CellView { coords, color })
+                Some(CellView { coords, data })
             })
             .collect()
     }
@@ -91,51 +91,42 @@ impl Cells for Board {
             .collect()
     }
 
-    fn cells(&self) -> Vec<CellView> {
+    fn cells(&self) -> Vec<CellView<D>> {
         self.cell_map
             .iter()
-            .map(|(coord, color)| CellView {
-                coords: coord,
-                color,
-            })
-            .collect::<Vec<CellView>>()
+            .map(|(coords, data)| CellView { coords, data })
+            .collect::<Vec<CellView<_>>>()
     }
 }
 
-impl Board {
-    pub fn new(size: usize) -> Board {
+impl<D: Clone> Board<D> {
+    pub fn new(size: usize, new_cell_data: fn(Vec<CellView<D>>) -> D) -> Board<D> {
         Board {
             size,
             cell_map: HashMap::new(),
+            new_cell_data,
         }
     }
 
-    pub fn random(size: usize, alive_chance: f32) -> Board {
-        let mut board = Board::new(size);
-
+    pub fn randomize(&mut self, size: usize, alive_chance: f32, get_default_data: fn() -> D) {
         for i in 0..size {
             for j in 0..size {
                 if rand::random::<f32>() <= alive_chance {
-                    board.insert(
-                        Coord(i as i32, j as i32),
-                        Color(rand::random(), rand::random(), rand::random()),
-                    );
+                    self.insert(Coord(i as i32, j as i32), get_default_data());
                 }
             }
         }
-
-        board
     }
 
-    pub fn tick(&mut self) -> Vec<CellEvent> {
-        let mut updates: Vec<CellEvent> = vec![];
+    pub fn tick(&mut self) -> Vec<CellEvent<D>> {
+        let mut updates: Vec<CellEvent<D>> = vec![];
 
-        for CellView { coords, color } in self.cells().iter() {
+        for CellView { coords, data } in self.cells().iter() {
             let neighbours = self.get_neighbours(coords);
             if neighbours.len() < 2 || neighbours.len() > 3 {
                 updates.push(CellEvent::Died(Cell {
                     coords: (*coords).clone(),
-                    color: (*color).clone(),
+                    data: (*data).clone(),
                 }))
             }
         }
@@ -143,26 +134,16 @@ impl Board {
         for coords in self.all_dead_neighbours() {
             let alive_neighbours = self.get_neighbours(&coords);
             if alive_neighbours.len() == 3 {
-                let color =
-                    alive_neighbours
-                    .iter()
-                    .map(|c| c.color)
-                    .fold(Color(0., 0., 0.), |acc, c| {
-                        Color(
-                            acc.0 + c.0 / alive_neighbours.len() as f32,
-                            acc.1 + c.1 / alive_neighbours.len() as f32,
-                            acc.2 + c.2 / alive_neighbours.len() as f32,
-                        )
-                    });
+                let data = (self.new_cell_data)(alive_neighbours);
 
-                updates.push(CellEvent::Born(Cell { coords, color }))
+                updates.push(CellEvent::Born(Cell { coords, data }))
             }
         }
 
         for update in &updates {
             match update {
                 CellEvent::Born(cell) => {
-                    self.insert(cell.coords.clone(), cell.color.clone());
+                    self.insert(cell.coords.clone(), cell.data.clone());
                 }
                 CellEvent::Died(cell) => self.remove(&cell.coords),
             };
@@ -172,44 +153,44 @@ impl Board {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Coord(pub i32, pub i32);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Color(pub f32, pub f32, pub f32);
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct Cell {
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Cell<D> {
     pub coords: Coord,
-    pub color: Color,
+    pub data: D,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct CellView<'a> {
+pub struct CellView<'a, D> {
     pub coords: &'a Coord,
-    pub color: &'a Color,
+    pub data: &'a D,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn red() -> Color {
-        Color(1., 0., 0.)
+    fn test_board(size: usize) -> Board {
+        Board::new(size, |_cells| ())
     }
 
     #[test]
     fn empty_stays_empty() {
-        let mut board = Board::new(100);
+        let mut board = test_board(100);
 
         assert_eq!(board.tick(), vec![])
     }
 
     #[test]
     fn single_cell_dies() {
-        let mut board = Board::new(100);
+        let mut board = test_board(100);
 
-        board.insert(Coord(0, 0), red());
+        board.insert(Coord(0, 0), ());
 
         board.tick();
 
@@ -218,11 +199,11 @@ mod tests {
 
     #[test]
     fn cell_with_one_neighbour_dies() {
-        let mut board = Board::new(100);
+        let mut board = test_board(100);
 
-        board.insert(Coord(0, 0), red());
-        board.insert(Coord(1, 1), red());
-        board.insert(Coord(1, 2), red());
+        board.insert(Coord(0, 0), ());
+        board.insert(Coord(1, 1), ());
+        board.insert(Coord(1, 2), ());
 
         board.tick();
 
@@ -240,10 +221,10 @@ mod tests {
             Coord(2, 1),
         ];
 
-        let mut board = Board::new(100);
+        let mut board = test_board(100);
 
         cells.into_iter().for_each(|c| {
-            board.insert(c, red());
+            board.insert(c, ());
         });
 
         board.tick();
@@ -255,19 +236,15 @@ mod tests {
     fn cell_comes_alive() {
         let cells = vec![Coord(0, 0), Coord(0, 1), Coord(0, 2)];
 
-        let mut board = Board::new(100);
+        let mut board = test_board(100);
 
         cells.into_iter().for_each(|c| {
-            board.insert(c, red());
+            board.insert(c, ());
         });
 
         board.tick();
 
         board.cell_map.get(&Coord(1, 1)).expect("Should come alive");
-        board
-            .cell_map
-            .get(&Coord(-1, 1))
-            .expect("Should come alive");
     }
 }
 
@@ -276,8 +253,8 @@ mod snapshots {
     use super::*;
     use insta::*;
 
-    fn red() -> Color {
-        Color(1., 0., 0.)
+    fn test_board(size: usize) -> Board {
+        Board::new(size, |_cells| ())
     }
 
     fn display_board(board: &Board) -> String {
@@ -299,12 +276,15 @@ mod snapshots {
     fn test_board_tick(board: &mut Board) {
         let before = display_board(board);
 
-        let events = board
-            .tick()
+        let mut events = board.tick();
+
+        events.sort();
+
+        let events = events
             .iter()
             .map(|e| format!("{:?}", e))
             .collect::<Vec<_>>()
-            .join("\\n");
+            .join("\n");
 
         let after = display_board(&board);
 
@@ -316,41 +296,41 @@ mod snapshots {
 
     #[test]
     fn test_horizontal_line() {
-        let mut board = Board::new(3);
+        let mut board = test_board(3);
 
-        board.insert(Coord(1, 0), red());
-        board.insert(Coord(1, 1), red());
-        board.insert(Coord(1, 2), red());
+        board.insert(Coord(1, 0), ());
+        board.insert(Coord(1, 1), ());
+        board.insert(Coord(1, 2), ());
 
         test_board_tick(&mut board);
     }
 
     #[test]
     fn test_vertical_line() {
-        let mut board = Board::new(3);
+        let mut board = test_board(3);
 
-        board.insert(Coord(0, 1), red());
-        board.insert(Coord(1, 1), red());
-        board.insert(Coord(2, 1), red());
+        board.insert(Coord(0, 1), ());
+        board.insert(Coord(1, 1), ());
+        board.insert(Coord(2, 1), ());
 
         test_board_tick(&mut board);
     }
 
     #[test]
     fn test_neighbours() {
-        let mut board = Board::new(3);
+        let mut board = test_board(3);
 
-        board.insert(Coord(0, 0), red());
-        board.insert(Coord(1, 0), red());
-        board.insert(Coord(2, 0), red());
+        board.insert(Coord(0, 0), ());
+        board.insert(Coord(1, 0), ());
+        board.insert(Coord(2, 0), ());
 
-        board.insert(Coord(0, 1), red());
-        board.insert(Coord(1, 1), red());
-        board.insert(Coord(2, 1), red());
+        board.insert(Coord(0, 1), ());
+        board.insert(Coord(1, 1), ());
+        board.insert(Coord(2, 1), ());
 
-        board.insert(Coord(0, 2), red());
-        board.insert(Coord(1, 2), red());
-        board.insert(Coord(2, 2), red());
+        board.insert(Coord(0, 2), ());
+        board.insert(Coord(1, 2), ());
+        board.insert(Coord(2, 2), ());
 
         assert_debug_snapshot!(board
             .get_neighbours(&Coord(1, 1))

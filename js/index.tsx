@@ -45,8 +45,12 @@ export const App = () => {
 
     const run = async () => {
       const run = () => {
+        if (!game) {
+          return;
+        }
+
         console.time("tick");
-        const events = R.range(0, updatesPerRender).map(() => game!.tick());
+        const events = R.range(0, updatesPerRender).map(() => game.tick());
         console.timeEnd("tick");
 
         console.time("JSON parse");
@@ -116,7 +120,7 @@ const Cell = ({ cellRef }: CellProps) => {
 };
 
 type CellData = {
-  color: [number, number, number];
+  data: [number, number, number];
   coords: [number, number];
 };
 
@@ -132,7 +136,7 @@ const updateCell = (refs: RefMap) => (e: Event) => {
   if ("Died" in e) {
     element.style.backgroundColor = "transparent";
   } else {
-    element.style.backgroundColor = `rgb(${data.color.map((c) => c * 255)})`;
+    element.style.backgroundColor = `rgb(${data.data.map((c) => c * 255)})`;
   }
 };
 
