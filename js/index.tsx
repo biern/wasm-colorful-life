@@ -6,34 +6,26 @@ import type { Game } from "../pkg/index";
 
 const wasm = import("../pkg/index.js");
 
-type RefMap = { [key: string]: MutableRefObject<HTMLTableCellElement | null> };
-
 const useLife = (args: {
   size: number;
   fps: number;
-  eventHandler: (refs: RefMap) => (event: Event) => void;
+  eventHandler: (event: Event) => void;
 }) => {
   const updatesPerRender = 1;
   const [fps, setFps] = useState(3);
   const [game, setGame] = useState<undefined | Game>(undefined);
+  const [size, setSize] = useState(args.size);
 
-  const refs: RefMap = {};
-
-  for (const i of R.range(0, args.size)) {
-    for (const j of R.range(0, args.size)) {
-      refs[`${i}-${j}`] = useRef(null);
-    }
-  }
-
-  const eventHandler = args.eventHandler(refs);
-  const handleEvents = (events: Event[]) => events.forEach(eventHandler);
+  const handleEvents = (events: Event[]) => events.forEach(args.eventHandler);
 
   useEffect(() => {
     const run = async () => {
       const _mod = await wasm;
       const mod = _mod as Exclude<typeof _mod, void>;
 
-      const game = mod.Game.new(args.size);
+      const game = mod.Game.new(size);
+
+      console.log("New game", { size });
 
       handleEvents(JSON.parse(game.get_state()));
 
@@ -41,7 +33,7 @@ const useLife = (args: {
     };
 
     run();
-  }, []);
+  }, [size]);
 
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -73,19 +65,28 @@ const useLife = (args: {
     run();
 
     return () => clearTimeout(timeoutId);
-  }, [game, fps]);
+  }, [game, fps, size]);
 
   return {
     fps,
     setFps,
     game,
-    refs,
+    size,
+    setSize,
   };
 };
 
 export const App = () => {
-  const size = 50;
-  const life = useLife({ size, fps: 3, eventHandler: updateCell });
+  const nodes = useRef<{ [key: string]: HTMLElement }>({});
+  const setNode = (key: string) => (node: HTMLElement) => {
+    nodes.current[key] = node;
+  };
+
+  const life = useLife({
+    size: 50,
+    fps: 3,
+    eventHandler: updateCell(nodes),
+  });
 
   return (
     <div>
@@ -100,23 +101,25 @@ export const App = () => {
         }}
       />
       ({life.fps})
-      <table style={{ borderCollapse: "collapse" }}>
-        <tbody>
-          {R.range(0, size).map((i) => (
-            <tr key={i}>
-              {R.range(0, size).map((j) => (
-                <Cell key={`${i}-${j}`} cellRef={life.refs[`${i}-${j}`]} />
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {
+        <table style={{ borderCollapse: "collapse" }}>
+          <tbody>
+            {R.range(0, life.size).map((i) => (
+              <tr key={i}>
+                {R.range(0, life.size).map((j) => (
+                  <Cell key={`${i}-${j}`} cellRef={setNode(`${i}-${j}`)} />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
     </div>
   );
 };
 
 type CellProps = {
-  cellRef: MutableRefObject<HTMLTableCellElement | null>;
+  cellRef: React.Ref<HTMLElement>;
 };
 
 const Cell = ({ cellRef }: CellProps) => {
@@ -128,7 +131,7 @@ const Cell = ({ cellRef }: CellProps) => {
         height: "1rem",
         minHeight: "1rem",
       }}
-      ref={cellRef}
+      ref={cellRef as React.Ref<HTMLTableCellElement>}
     ></td>
   );
 };
@@ -140,9 +143,11 @@ type CellData = {
 
 type Event = { Died: CellData } | { Born: CellData };
 
-const updateCell = (refs: RefMap) => (e: Event) => {
+const updateCell = (
+  refs: MutableRefObject<{ [key in string]: HTMLElement | undefined }>
+) => (e: Event) => {
   const data = "Died" in e ? e.Died : e.Born;
-  const element = refs[`${data.coords[0]}-${data.coords[1]}`]?.current;
+  const element = refs.current[`${data.coords[0]}-${data.coords[1]}`];
 
   if (!element) {
     return;
