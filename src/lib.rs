@@ -1,5 +1,3 @@
-use js_sys;
-use serde_json;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 

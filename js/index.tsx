@@ -4,9 +4,7 @@ import React, { useEffect, useRef, MutableRefObject, useState } from "react";
 import { Canvas, useFrame, useThree } from "react-three-fiber";
 import { Mesh, MeshStandardMaterial, Color } from "three";
 
-import type { Game } from "../pkg/index";
-
-const wasm = import("../pkg/index.js");
+const worker = new Worker("./worker.js");
 
 import "reset-css";
 
@@ -15,28 +13,26 @@ const useLife = (args: {
   fps: number;
   eventHandler: (event: Event) => void;
 }) => {
-  const updatesPerRender = 1;
   const [fps, setFps] = useState(args.fps);
-  const [game, setGame] = useState<undefined | Game>(undefined);
   const [size, setSize] = useState(args.size);
 
   const handleEvents = (events: Event[]) => events.forEach(args.eventHandler);
 
   useEffect(() => {
-    const run = async () => {
-      const _mod = await wasm;
-      const mod = _mod as Exclude<typeof _mod, void>;
-
-      const game = mod.Game.new(size);
-
-      console.log("New game", { size });
-
-      handleEvents(JSON.parse(game.get_state()));
-
-      setGame(game);
+    const onWorkerMessage = (ev: any) => {
+      const message = ev.data;
+      if (message.kind === "game-events") {
+        handleEvents(JSON.parse(message.events));
+      }
     };
 
-    run();
+    worker.addEventListener("message", onWorkerMessage);
+
+    () => worker.removeEventListener("message", onWorkerMessage);
+  });
+
+  useEffect(() => {
+    worker.postMessage({ kind: "new-game", size });
   }, [size]);
 
   useEffect(() => {
@@ -44,21 +40,7 @@ const useLife = (args: {
 
     const run = async () => {
       const run = () => {
-        if (!game) {
-          return;
-        }
-
-        console.time("tick");
-        const events = R.range(0, updatesPerRender).map(() => game.tick());
-        console.timeEnd("tick");
-
-        console.time("JSON parse");
-        const decoded = R.flatten(events.map((el) => JSON.parse(el)));
-        console.timeEnd("JSON parse");
-
-        console.time("publish");
-        handleEvents(decoded);
-        console.timeEnd("publish");
+        worker.postMessage({ kind: "tick" });
 
         timeoutId = setTimeout(run, 1000 / fps);
       };
@@ -69,12 +51,11 @@ const useLife = (args: {
     run();
 
     return () => clearTimeout(timeoutId);
-  }, [game, fps, size]);
+  }, [fps, size]);
 
   return {
     fps,
     setFps,
-    game,
     size,
     setSize,
   };

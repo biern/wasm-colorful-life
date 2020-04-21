@@ -1,6 +1,7 @@
  {
    "compilerOptions": {
      "outDir": "./dist/",
+     "lib": ["dom", "webworker"],
      "sourceMap": false,
      "strict": true,
      "esModuleInterop": true,

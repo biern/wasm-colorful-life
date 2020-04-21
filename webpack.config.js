@@ -4,7 +4,7 @@ const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const dist = path.resolve(__dirname, "dist");
 
-module.exports = {
+const appConfig = {
   mode: "production",
   entry: {
     index: "./js/index.tsx",
@@ -45,11 +45,44 @@ module.exports = {
       // },
     ],
   },
+  plugins: [new CopyPlugin([path.resolve(__dirname, "static")])],
+};
+
+const workerConfig = {
+  entry: "./js/worker.ts",
+  target: "webworker",
   plugins: [
-    new CopyPlugin([path.resolve(__dirname, "static")]),
     new WasmPackPlugin({
       crateDirectory: __dirname,
       forceWatch: false,
     }),
   ],
+  resolve: {
+    extensions: [".js", ".wasm", ".ts"],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts(x?)$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: "ts-loader",
+          },
+        ],
+      },
+      // // All output '.js' files will have any sourcemaps re-processed by 'source-map-loader'.
+      // {
+      //   enforce: "pre",
+      //   test: /\.js$/,
+      //   loader: "source-map-loader",
+      // },
+    ],
+  },
+  output: {
+    path: dist,
+    filename: "worker.js",
+  },
 };
+
+module.exports = [appConfig, workerConfig];
