@@ -5,6 +5,7 @@
      "strict": true,
      "esModuleInterop": true,
      "module": "esnext",
+     "moduleResolution": "node",
      "target": "es6",
      "jsx": "react"
    }
