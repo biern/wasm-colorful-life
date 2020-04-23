@@ -8,6 +8,8 @@ import type { Game } from "../pkg/index";
 
 const wasm = import("../pkg/index.js");
 
+import "reset-css";
+
 const useLife = (args: {
   size: number;
   fps: number;
