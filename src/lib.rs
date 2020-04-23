@@ -37,7 +37,7 @@ pub struct Game {
 #[wasm_bindgen]
 impl Game {
     pub fn new(size: usize) -> Game {
-        let mut board = life::Board::new(size, avg_color);
+        let mut board = life::Board::new(size, avg_color_with_mutation);
 
         board.randomize(size, 0.5, random_color);
 
@@ -81,4 +81,33 @@ fn avg_color(neighbours: Vec<life::CellView<life::Color>>) -> life::Color {
                 acc.2 + c.2 / neighbours.len() as f32,
             )
         })
+}
+
+fn avg_color_with_mutation(neighbours: Vec<life::CellView<life::Color>>) -> life::Color {
+    let mut avg = neighbours
+        .iter()
+        .map(|c| c.data)
+        .fold(life::Color(0., 0., 0.), |acc, c| {
+            life::Color(
+                acc.0 + c.0 / neighbours.len() as f32,
+                acc.1 + c.1 / neighbours.len() as f32,
+                acc.2 + c.2 / neighbours.len() as f32,
+            )
+        });
+
+    let mutation_chance = 0.01;
+
+    if rand::random::<f32>() <= mutation_chance {
+        avg.0 = rand::random();
+    }
+
+    if rand::random::<f32>() <= mutation_chance {
+        avg.1 = rand::random();
+    }
+
+    if rand::random::<f32>() <= mutation_chance {
+        avg.2 = rand::random();
+    }
+
+    avg
 }
