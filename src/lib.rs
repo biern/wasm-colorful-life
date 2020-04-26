@@ -1,6 +1,8 @@
 use js_sys;
 use serde_json;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use web_sys;
 use web_sys::console;
 
 mod life;
@@ -31,17 +33,18 @@ pub fn main_js() -> Result<(), JsValue> {
 #[wasm_bindgen]
 pub struct Game {
     board: life::Board<life::Color>,
+    canvas: web_sys::HtmlCanvasElement,
 }
 
 /// Public methods, exported to JavaScript.
 #[wasm_bindgen]
 impl Game {
-    pub fn new(size: usize) -> Game {
+    pub fn new(size: usize, canvas: web_sys::HtmlCanvasElement) -> Game {
         let mut board = life::Board::new(size, avg_color_with_mutation);
 
         board.randomize(size, 0.5, random_color);
 
-        Game { board }
+        Game { board, canvas }
     }
 
     pub fn get_state(&self) -> String {
@@ -60,9 +63,40 @@ impl Game {
         serde_json::to_string(&events).unwrap()
     }
 
-    pub fn tick(&mut self) -> String {
-        let events = self.board.tick();
-        serde_json::to_string(&events).unwrap()
+    pub fn tick(&mut self) {
+        self.board.tick();
+    }
+
+    pub fn draw(&mut self, cell_size: f64) {
+        let context = self
+            .canvas
+            .get_context(&"2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+
+        for cell in self.board.cells() {
+            context.save();
+            context.set_line_width(1.);
+            context
+                .translate(
+                    cell.coords.0 as f64 * cell_size,
+                    cell.coords.1 as f64 * cell_size,
+                )
+                .unwrap();
+            context.set_fill_style(
+                &format!(
+                    "rgb({}, {}, {})",
+                    (cell.data.0 * 255.).floor(),
+                    (cell.data.1 * 255.).floor(),
+                    (cell.data.2 * 255.).floor(),
+                )
+                .into(),
+            );
+            context.fill_rect(0., 0., cell_size, cell_size);
+            context.restore();
+        }
     }
 }
 
