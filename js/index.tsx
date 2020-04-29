@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom";
-import React, { useEffect, useRef, MutableRefObject, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import type { Game } from "../pkg/index";
 
@@ -15,6 +15,9 @@ const useLife = (args: {
   const [fps, setFps] = useState(args.fps);
   const [game, setGame] = useState<undefined | Game>(undefined);
   const [size, setSize] = useState(args.size);
+  const cameraRef = useRef<{ position: [number, number] }>({
+    position: [0, 0],
+  });
 
   useEffect(() => {
     let timeoutId: number | undefined;
@@ -32,7 +35,7 @@ const useLife = (args: {
 
       setGame(game);
 
-      timeoutId = redraw(args.canvas, game, size, 10);
+      timeoutId = redraw(args.canvas, cameraRef, game, size, 10);
     };
 
     run();
@@ -70,11 +73,17 @@ const useLife = (args: {
     game,
     size,
     setSize,
+    moveCamera: (delta: [number, number]) => {
+      cameraRef.current.position = cameraRef.current.position.map(
+        (value, i) => value + delta[i]
+      ) as [number, number];
+    },
   };
 };
 
 const redraw = (
   canvas: HTMLCanvasElement,
+  cameraRef: React.MutableRefObject<{ position: [number, number] }>,
   game: Game,
   size: number,
   interval: number
@@ -82,12 +91,18 @@ const redraw = (
   const context = canvas.getContext("2d")!;
   return setInterval(() => {
     window.requestAnimationFrame(() => {
-      const cellSize = Math.min(canvas.width, canvas.height) / size / 2;
+      const scale = 2;
+      const cellSize = Math.min(canvas.width, canvas.height) / size / scale;
 
+      context.resetTransform();
       context.clearRect(0, 0, canvas.width, canvas.height);
 
-      canvas.width = window.innerWidth * 2;
-      canvas.height = window.innerHeight * 2;
+      canvas.width = window.innerWidth * scale;
+      canvas.height = window.innerHeight * scale;
+      context.translate(
+        cameraRef.current.position[0] * scale,
+        cameraRef.current.position[1] * scale
+      );
       context.scale(2, 2);
       game.draw(cellSize);
     });
@@ -96,17 +111,20 @@ const redraw = (
 
 export const App = () => {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [camera, setCamera] = useState<[number, number]>([0, 0]);
 
   const life = useLife({
-    size: 200,
+    size: 150,
     fps: 12,
     canvas,
   });
 
   return (
     <div style={{ height: "100vh" }}>
-      <canvas style={{ height: "100vh", width: "100%" }} ref={setCanvas} />
+      <canvas
+        style={{ height: "100vh", width: "100%" }}
+        ref={setCanvas}
+        {...draggable(life.moveCamera)}
+      />
       <div style={{ position: "absolute", top: "1rem" }}>
         <div>
           <label>FPS:</label>
@@ -126,7 +144,7 @@ export const App = () => {
           <input
             type="range"
             min="30"
-            max="200"
+            max="300"
             step="10"
             value={life.size}
             onChange={(e) => {
@@ -138,6 +156,21 @@ export const App = () => {
       </div>
     </div>
   );
+};
+
+const draggable = (onDrag: (delta: [number, number]) => void) => {
+  const move = (e: React.MouseEvent) => {
+    onDrag([e.movementX, e.movementY]);
+  };
+
+  return {
+    onMouseDown: (e: React.MouseEvent) => {
+      e.target.addEventListener("mousemove", move as any);
+    },
+    onMouseUp: (e: React.MouseEvent) => {
+      e.target.removeEventListener("mousemove", move as any);
+    },
+  };
 };
 
 ReactDOM.render(React.createElement(App), document.getElementById("root"));
